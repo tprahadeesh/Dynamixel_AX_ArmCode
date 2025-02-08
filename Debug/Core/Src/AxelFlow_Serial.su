@@ -1,0 +1,5 @@
+../Core/Src/AxelFlow_Serial.c:13:20:AxelFlow_UART_Init	96	static
+../Core/Src/AxelFlow_Serial.c:30:9:getChecksum	32	static
+../Core/Src/AxelFlow_Serial.c:41:6:struct_to_arr	40	static
+../Core/Src/AxelFlow_Serial.c:60:15:arr_to_struct	64	dynamic
+../Core/Src/AxelFlow_Serial.c:79:15:AxelFlow_fire	160	dynamic
