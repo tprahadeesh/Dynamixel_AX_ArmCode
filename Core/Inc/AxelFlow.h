@@ -169,6 +169,28 @@ typedef enum
 	BAUD_DEFAULT = 0x01    // Margin of Error = 0.000% (default)
 } BaudRate;
 
+// Struct to store parsed JSON data
+typedef struct {
+    int dof_4;
+    int angle_dof_4;
+    int dof_5;
+    int angle_dof_5;
+    int dof_6;
+    int angle_dof_6;
+    int gripper;
+    int angle_gripper;
+    int hold;
+} RobotData;
+
+typedef struct
+{
+	int *ID;
+	int *pos;
+	int *speed;
+} SyncWrite_Packet;
+
+
+
 //TODO: CLean this up
 
 unsigned int setStatusPaketReturnDelay(unsigned char, unsigned char);

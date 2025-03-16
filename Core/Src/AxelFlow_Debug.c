@@ -17,6 +17,5 @@ HAL_StatusTypeDef AxelFlow_debug_println(char *st)
 {
 	char str[200];
 	sprintf(str, "%s\n\r", st);
-	return HAL_UART_Transmit(&huartx, (uint8_t*) str, strlen(str),
-	HAL_MAX_DELAY);
+	return HAL_UART_Transmit(&huartx, (uint8_t*) str, strlen(str),HAL_MAX_DELAY);
 }

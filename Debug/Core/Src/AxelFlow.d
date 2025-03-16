@@ -29,7 +29,7 @@ Core/Src/AxelFlow.o: ../Core/Src/AxelFlow.c ../Core/Inc/AxelFlow.h \
  ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd.h \
  ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_usb.h \
  ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd_ex.h \
- ../Core/Inc/AxelFlow_Serial.h
+ ../Core/Inc/AxelFlow_Serial.h ../Core/Inc/cJSON.h
 ../Core/Inc/AxelFlow.h:
 ../Core/Inc/AxelFlow_Debug.h:
 ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal.h:
@@ -62,3 +62,4 @@ Core/Src/AxelFlow.o: ../Core/Src/AxelFlow.c ../Core/Inc/AxelFlow.h \
 ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_ll_usb.h:
 ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_pcd_ex.h:
 ../Core/Inc/AxelFlow_Serial.h:
+../Core/Inc/cJSON.h:

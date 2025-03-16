@@ -5,6 +5,11 @@
  *      Author: Srikar Bharadwaj R
  */
 #include "AxelFlow.h"
+#include "cJSON.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
 
 #define DEBUG_PRINT_STATUS
 
@@ -101,6 +106,8 @@ Status_Packet setCWLimit(float max_angle, Servo servo)
 	packet.Param = param_array;
 	return AxelFlow_fire(&servo.huartx, packet);
 }
+
+
 Status_Packet setPosition(float angle, Servo servo)
 {
 	uint8_t *data = degreesToData(angle);
@@ -121,7 +128,7 @@ Status_Packet grip(uint16_t angle, Servo servo)
 	float x;
 	do
 	{
-		status = setPosition(angle, servo);
+		status = confirm_set(angle, servo);
 		current_angle = (uint16_t) getPositionAngle(servo);
 		x= getPresentLoad(servo);
 		if(x>20){
@@ -136,39 +143,49 @@ Status_Packet grip(uint16_t angle, Servo servo)
 Status_Packet confirm_set(uint16_t angle, Servo servo)
 {
 	uint16_t current_angle;
+	uint16_t goal_angle;
 	Status_Packet status;
 	char ch[40];
 	float x;
 	do
 	{
-		status = setPosition(angle, servo);
+		if (current_angle > angle){
+			goal_angle = current_angle-1;
+		}
+		if (current_angle < angle){
+			goal_angle = current_angle+1;
+		}
+		status = setPosition(goal_angle, servo);
 		current_angle = (uint16_t) getPositionAngle(servo);
-	} while (angle != current_angle && angle != current_angle + 1
-			&& angle != current_angle - 1);
+	} while (angle != current_angle && angle < current_angle + 1
+			&& angle > current_angle - 1);
 	return status;
 }
 
+
 move_arm(Servo dof_4,uint16_t angle_dof_4, Servo dof_5,uint16_t angle_dof_5, Servo dof_6, uint16_t angle_dof_6, Servo gripper,uint16_t angle_gripper,bool hold ){
+
+
 	char anglebuffer[BUFFER_LENGTH];
 	setSpeed(20, dof_4);
 	setSpeed(20, dof_5);
 	setSpeed(20, dof_6);
 	setSpeed(20, gripper);
-	confirm_set(angle_dof_4, dof_4);
-	confirm_set(angle_dof_5, dof_5);
-	confirm_set(angle_dof_6, dof_6);
+	setPosition(angle_dof_4, dof_4);
+	setPosition(angle_dof_5, dof_5);
+	setPosition(angle_dof_6, dof_6);
 	if(hold){
 		grip(137, gripper);
 	}
 	else{
-	    confirm_set(angle_gripper,gripper);
+		forceSetPosition(angle_gripper,gripper);
 	}
 	uint16_t angle4 = (uint16_t) getPositionAngle(dof_4);
 	uint16_t angle5 = (uint16_t) getPositionAngle(dof_5);
 	uint16_t angle6 = (uint16_t) getPositionAngle(dof_6);
 	uint16_t angle7 = (uint16_t) getPositionAngle(gripper);
 	//uint16_t angle4 = (uint16_t) getPositionAngle(servo);
-	sprintf(anglebuffer, "{\"angle4\":%ld, \"angle5\":%ld, \"angle6\":%ld, \"angle7\":%ld}\r\n", angle4, angle5, angle6, angle7);
+	sprintf(anglebuffer, "{\"angle4\":%hu, \"angle5\":%hu, \"angle6\":%hu, \"angle7\":%hu}\r\n", angle4, angle5, angle6, angle7);
 	CDC_Transmit_FS((uint8_t*) anglebuffer, strlen(anglebuffer));
 	memset(anglebuffer, '\0', BUFFER_LENGTH);
 }
@@ -208,6 +225,36 @@ Status_Packet setRunningTorque(float torque, Servo servo)	// torque 0 to 100%
 	packet.Param = param_array;
 	return AxelFlow_fire(&servo.huartx, packet);
 }
+
+Status_Packet Sync_write(SyncWrite_Packet write_packet,UART_HandleTypeDef huartx)
+{
+    int num_servos = sizeof(write_packet.ID) - 2;
+    int param_length = 2 + num_servos * (7);
+    uint8_t param_array[param_length];
+
+    param_array[0] = RAM_GOAL_POSITION_L;
+    param_array[1] = 0x04;
+
+    int count = 2;
+    for (int i = 0; i < num_servos; i++) {
+        uint8_t *data_p = degreesToData(write_packet.pos[i]);
+        uint8_t *data_s = degreesToData(write_packet.speed[i] * 3);
+
+        param_array[count++] = write_packet.ID[i];
+        param_array[count++] = data_p[0];
+        param_array[count++] = data_p[1];
+        param_array[count++] = data_s[0];
+        param_array[count++] = data_s[1];
+    }
+
+    packet.Packet_ID = 0xFE;
+    packet.Length = sizeof(param_array) + 2;
+    packet.Instruction = COMMAND_SYNC_WRITE;
+    packet.Param = param_array;
+    return AxelFlow_fire(&huartx, packet);
+}
+
+
 
 Status_Packet setSpeed(float speed, Servo servo)
 {

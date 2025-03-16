@@ -20,17 +20,83 @@
 #include "main.h"
 #include "usb_device.h"
 
-
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "usbd_cdc_if.h"
 #include "AxelFlow.h"
 #include "AxelFlow_Debug.h"
 #include "AxelFlow_Serial.h"
+#include "cJSON.h"
+#include "string.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
+int _write(int file, char *ptr, int len) {
+	int DataIdx;
+	for (DataIdx = 0; DataIdx < len; DataIdx++) {
+		ITM_SendChar(*ptr++);
+	}
+	return len;
+}
+// Global arrays for values (similar to dir[] and pwm[] in reference)
+int dof[3] = {0, 0, 0};      // Stores DOF values (dof_4, dof_5, dof_6)
+int angles[4] = {0, 0, 0, 0}; // Stores angles (angle_dof_4, angle_dof_5, angle_dof_6, angle_gripper)
+int gripper = 0;             // Gripper value
+int hold = 0;                // Hold value
+char debugMsg[1024];
+
+void Parse_JSON(const char *json_str) {
+    cJSON *root = cJSON_Parse(json_str);
+
+    if (!root) {
+        char errorMsg[] = "Invalid JSON\n";
+        CDC_Transmit_FS((uint8_t*)errorMsg, strlen(errorMsg));
+        return;
+    }
+
+    // Define JSON keys
+    const char *dof_keys[] = {"dof_4", "dof_5", "dof_6"};
+    const char *angle_keys[] = {"angle_dof_4", "angle_dof_5", "angle_dof_6", "angle_gripper"};
+
+    // Extract DOF values
+    for (int i = 0; i < 3; i++) {
+        cJSON *item = cJSON_GetObjectItem(root, dof_keys[i]);
+        if (cJSON_IsNumber(item)) {
+            dof[i] = item->valueint;
+        }
+    }
+
+    // Extract Angle values
+    for (int i = 0; i < 4; i++) {
+        cJSON *item = cJSON_GetObjectItem(root, angle_keys[i]);
+        if (cJSON_IsNumber(item)) {
+            angles[i] = item->valueint;
+        }
+    }
+
+    // Extract Gripper value
+    cJSON *gripper_item = cJSON_GetObjectItem(root, "gripper");
+    if (cJSON_IsNumber(gripper_item)) {
+        gripper = gripper_item->valueint;
+    }
+
+    // Extract Hold value
+    cJSON *hold_item = cJSON_GetObjectItem(root, "hold");
+    if (cJSON_IsNumber(hold_item)) {
+        hold = hold_item->valueint;
+    }
+
+    cJSON_Delete(root);
+
+    char response[512];
+    snprintf(response, sizeof(response),
+        "DOFs: %d, %d, %d, %d angle : %d, %d, %d, %d\n",
+        dof[0], dof[1], dof[2], angles[0],
+        angles[1], angles[2], angles[3], gripper);
+    CDC_Transmit_FS((uint8_t*)response, strlen(response));
+}
+
 
 /* USER CODE END PTD */
 
@@ -49,7 +115,7 @@ UART_HandleTypeDef huart1;
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
-
+char USB_RX_Buffer[1024];
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -75,14 +141,25 @@ int main(void)
 
   /* USER CODE BEGIN 1 */
 	AxelFlow_debug_init(&huart2);
-	UART_HandleTypeDef servo1_UART_Handle = AxelFlow_UART_Init(USART1, 1000000); // Make sure that interrupt is selected.
+	UART_HandleTypeDef servo1_UART_Handle = AxelFlow_UART_Init(USART1,1000000); // Make sure that interrupt is selected.
 	Servo servo1 = AxelFlow_servo_init(0x04, &servo1_UART_Handle, false);
 	Servo servo2 = AxelFlow_servo_init(0x03, &servo1_UART_Handle, false);
 	Servo servo3 = AxelFlow_servo_init(0x01, &servo1_UART_Handle, false);
 	Servo servo4 = AxelFlow_servo_init(0x05, &servo1_UART_Handle, false);
 	Servo servo5 = AxelFlow_servo_init(0x02, &servo1_UART_Handle, true);
 	Servo servo6 = AxelFlow_servo_init(0x09, &servo1_UART_Handle, false);
+	Servo servo7 = AxelFlow_servo_init(0x08, &servo1_UART_Handle, false);
 	Status_Packet set_status;
+	//	setSpeedinRPM(50, servo5);
+	//	changeServoID(2, servo3);
+	//	Status_Packet set_status=setMaxTorque(100, servo5);
+	//	Status_Packet set_status = setCCWLimit(220, servo5);
+	//	print_status(set_status, 1);
+	//	HAL_Delay(2000);
+	//	set_status = setCWLimit(10, servo5);
+	//	print_status(set_status, 0);
+	//	setWheelMode(servo1);
+//	 changeBaudRate(1000000, servo3);
 
   /* USER CODE END 1 */
 
@@ -115,14 +192,96 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-		setSpeed(20, servo6);
+		printf("Hello");
+		char ch[40];
+		int x;
+		SyncWrite_Packet write_packet;
+		Parse_JSON(USB_RX_Buffer);
+		HAL_Delay(1);
+		snprintf(debugMsg, sizeof(debugMsg), "Received JSON: %s\n", USB_RX_Buffer);
+		CDC_Transmit_FS((uint8_t*)debugMsg, strlen(debugMsg));
+
+
+		setSpeed(20, servo4);
 		HAL_Delay(2000);
-		setPosition(120, servo6);
-		setSpeed(20, servo6);
+//		int Servo[2]= {servo7.id,3};
+//		int pos[2]={100,0};
+//		int speed[2]={20,200};
+//		write_packet.ID= Servo;
+//		write_packet.pos=pos;
+//		write_packet.speed=speed;
+//		Sync_write( write_packet,USART1);
+//        confirm_set(120, servo6);
+		setPosition(120, servo4);
+//		setSpeed(20, servo6);
+		HAL_Delay(1000);
+//        confirm_set(180, servo6);
+//        move_arm(servo4,angles[0], servo6,angles[1], servo2, angles[2], servo1,angles[3], 0 ); //FOR ARM
+        //move_arm(servo4,angles[0], servo6,angles[1], servo3, angles[2], servo1,angles[3], 0 ); //FOR TESTING
+		setPosition(180, servo4);
+//		setSpeed(50, servo3);
 		HAL_Delay(2000);
-		setPosition(180, servo6);
-		setSpeed(20, servo6);
-		HAL_Delay(2000);
+		//		status = setPunch(30.0, s'ervo1);
+		//		print_status(status, 0);
+		//		HAL_Delay(100);
+		//		char ch[40];
+		//		sprintf(ch, "%f\n\r", getPresentLoad(servo1));
+		//		AxelFlow_debug_println(ch);
+		//		setPosition(60, servo2);
+//				set_status = setPosition(100, servo2);
+		//		print_status(set_status, 0);
+		//
+//				HAL_Delay(2000);
+//                setPosition(80, servo6);
+		//		print_status(set_status, 1);
+//				setPosition(180, servo3);
+//		        HAL_Delay(4000);
+//        move_arm(servo4,120, servo6,100, servo2, 30, servo1,180, 1 );
+		//		setPosition(0, servo3);
+		//		set_status = setPosition(90, servo6);
+		//		x = getPositionAngle(servo1);
+		//		sprintf(ch, "%f\n\r", x);
+		//		AxelFlow_debug_println(ch);
+		//		print_status(set_status, 0);
+//				HAL_Delay(2000);
+//				x =scanID(servo3);
+		//	    x = getPositionAngle(servo5);
+//				sprintf(ch, "%f\n\r", x);
+//				AxelFlow_debug_println(ch);
+		//	    sprintf(ch, "%f\n\r", x);
+		//	    AxelFlow_debug_println(ch);
+		//		grip(130, servo1);
+		//		setPosition(130, servo6);
+		//		x = getPositionAngle(servo1);
+		//		sprintf(ch, "%f\n\r", x);
+		//		AxelFlow_debug_println(ch);
+//				setSpeed(20, servo4);
+//				HAL_Delay(2000);
+//			    setPosition(300, servo4);
+//			    HAL_Delay(2000);
+//		        confirm_set(10, servo2);
+//		        HAL_Delay(2000);
+//		        confirm_set(40, servo2);
+//		        HAL_Delay(2000);
+//				setPosition(0, servo4);
+//			    setPosition(180, servo6);
+		//		print_status(set_status, 0);
+//				HAL_Delay(4000);
+//				set_status = setPosition(120, servo2);
+//				HAL_Delay(2000);
+		//		print_status(set_status, 0);
+		//		HAL_Delay(2000);
+		//		setSpeed(10, servo2);
+//				grip(137, servo1);
+
+//				HAL_Delay(2000);
+		//		setSpeed(30, servo5);
+//			    x = getPositionAngle(servo6);
+//				char ch1[20] = "hello";
+//				sprintf(ch, "%u\n", x);
+//				HAL_UART_Transmit(&huart2, ch, strlen(ch),HAL_MAX_DELAY);
+//				AxelFlow_debug_println(ch1);
+//				HAL_Delay(4000);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -254,6 +413,7 @@ static void MX_GPIO_Init(void)
   /* GPIO Ports Clock Enable */
   __HAL_RCC_GPIOH_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
+  __HAL_RCC_GPIOB_CLK_ENABLE();
 
 /* USER CODE BEGIN MX_GPIO_Init_2 */
 /* USER CODE END MX_GPIO_Init_2 */
